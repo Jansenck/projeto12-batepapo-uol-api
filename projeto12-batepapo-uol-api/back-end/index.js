@@ -38,7 +38,6 @@ server.post("/participants", async (req,res) => {
         };
         
         await db.collection('participants').insertOne({name: name, lastStatus: Date.now()});
-
         await db.collection('messages').insertOne({
             from: name,
             to: 'Todos',
@@ -50,10 +49,23 @@ server.post("/participants", async (req,res) => {
         return res.sendStatus(201);
 
     }catch(error){
+
         console.error(error);
         return res.sendStatus(500);
     }
+});
 
+server.get("/participants", async (req, res) => {
+    
+    try{
+        const participants = await db.collection('participants').find().toArray();
+        console.log(participants);
+        return res.send(participants);
+
+    }catch(error){
+        console.error(error);
+        res.sendStatus(500);
+    }
 });
 
 server.listen(5000);
