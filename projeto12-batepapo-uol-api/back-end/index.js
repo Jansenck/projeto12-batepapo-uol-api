@@ -19,6 +19,11 @@ server.use(cors());
 server.use(json());
 
 const nameSchema = joi.string().empty().required();
+const messageSchema = joi.object({
+    to: joi.string().empty().required(),
+    text: joi.string().empty().required(),
+    type: joi.string().valid('message', 'private_message').required()
+});
 
 server.post("/participants", async (req,res) => {
     
@@ -43,7 +48,7 @@ server.post("/participants", async (req,res) => {
             to: 'Todos',
             text: 'entra na sala...', 
             type: 'status', 
-            time: dayjs().locale('pt-br').format('HH:mm:ss')
+            time: dayjs().locale('br').format('HH:mm:ss')
         });
 
         return res.sendStatus(201);
@@ -59,13 +64,45 @@ server.get("/participants", async (req, res) => {
     
     try{
         const participants = await db.collection('participants').find().toArray();
-        console.log(participants);
         return res.send(participants);
 
     }catch(error){
         console.error(error);
-        res.sendStatus(500);
+        return res.sendStatus(500);
     }
+});
+
+server.post("/messages", async (req, res) => {
+
+    const {to, text, type} = req.body;
+    const {user} = req.headers;
+    const message = {to, text, type};
+
+    const validation = messageSchema.validate(message, {abortEarly: false});
+    const participant = await db.collection('participants').findOne({name: user})
+    
+    if(validation.error){
+        console.log(validation.error.details)
+        validation.error.details.map(err => {
+            console.log(err);
+        });
+        return res.sendStatus(422);
+    } else if(participant === null){
+        return res.sendStatus(422);
+    }
+
+    try{
+        await db.collection('messages').insertOne({
+            from: user,
+            ...message,
+            time: dayjs().locale('br').format('HH:mm:ss')
+        });
+
+        return res.sendStatus(201);
+    }catch(error){
+        console.error(error);
+        return res.sendStatus(500);
+    };
 });
 
 server.listen(5000);
