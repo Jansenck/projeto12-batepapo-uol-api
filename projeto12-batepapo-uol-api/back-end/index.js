@@ -24,6 +24,23 @@ const messageSchema = joi.object({
     text: joi.string().empty().required(),
     type: joi.string().valid('message', 'private_message').required()
 });
+/* const filterMessagesSchema = joi.object({
+    _id: joi.required(),
+    from: joi.required(),
+    to: joi.string().valid(user,'Todos').required(),
+    text: joi.required(),
+    type: joi.required(),
+    time: joi.required()
+}); */
+
+function validationMessage(user, message){
+    const {from, to} = message;
+    if(from === user || to === user || to === 'Todos'){
+        return true;
+    } else{
+        return false;
+    }
+}
 
 server.post("/participants", async (req,res) => {
     
@@ -82,7 +99,6 @@ server.post("/messages", async (req, res) => {
     const participant = await db.collection('participants').findOne({name: user})
     
     if(validation.error){
-        console.log(validation.error.details)
         validation.error.details.map(err => {
             console.log(err);
         });
@@ -104,5 +120,25 @@ server.post("/messages", async (req, res) => {
         return res.sendStatus(500);
     };
 });
+
+server.get("/messages", async (req, res) => {
+    const {user} = req.headers;
+    const {limit} = req.query;
+    
+    try {
+
+        const messages = await db.collection('messages').find().toArray();
+        const array = messages.filter(message => {
+            const {from, to} = message;
+            return (from === user || to === user || to === 'Todos')
+        });
+        return res.send(array.slice(-limit));
+    } catch (error) {
+        console.error(error);
+        return res.sendStatus(500);
+    }
+});
+
+
 
 server.listen(5000);
