@@ -1,6 +1,6 @@
 import { stripHtml } from 'string-strip-html';
 import express, {json} from 'express';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from "dotenv";
 import dayjs from 'dayjs';
 import cors from 'cors';
@@ -92,7 +92,7 @@ server.post("/messages", async (req, res) => {
     
     if(validation.error){
         validation.error.details.map(err => {
-            console.log(err);
+            console.error(err);
         });
         return res.sendStatus(422);
     } else if(participant === null){
@@ -107,9 +107,9 @@ server.post("/messages", async (req, res) => {
 
         await db.collection('messages').insertOne({
             from: sanitizedUser,
-            sanitizedTo,
-            sanitizedText,
-            sanitizedType,
+            to: sanitizedTo,
+            text: sanitizedText,
+            type: sanitizedType,
             time: dayjs().locale('br').format('HH:mm:ss')
         });
         return res.sendStatus(201);
@@ -133,6 +133,29 @@ server.get("/messages", async (req, res) => {
         });
         return res.send(array.slice(-limit));
     } catch (error) {
+        console.error(error);
+        return res.sendStatus(500);
+    }
+});
+
+server.delete("/messages/:idMessage", async (req, res) => {
+
+    const {user} = req.headers;
+    const {idMessage} = req.params;
+
+    try {
+        const sanitizedIdMessage = stripHtml(idMessage).result;
+        const message = await db.collection('messages').findOne({_id: new ObjectId(sanitizedIdMessage) });
+
+        if(user !== message.from){
+            return res.sendStatus(401);
+        }else if(!message){
+            return res.sendStatus(404);
+        }
+        console.log('user: ', user, 'from: ', message)
+        await db.collection('messages').deleteOne({ _id: new ObjectId(sanitizedIdMessage)});
+
+    } catch (error) { 
         console.error(error);
         return res.sendStatus(500);
     }
