@@ -1,3 +1,4 @@
+import { stripHtml } from 'string-strip-html';
 import express, {json} from 'express';
 import { MongoClient } from 'mongodb';
 import dotenv from "dotenv";
@@ -36,11 +37,13 @@ server.post("/participants", async (req,res) => {
 
     try{
         
-        const participant = await db.collection('participants').findOne({name: name}); 
+        const sanitizedName = stripHtml(name).result.trim();
+        const participant = await db.collection('participants').findOne({name: sanitizedName}); 
 
         if(participant){
             return res.sendStatus(409);
         };
+
         
         await db.collection('participants').insertOne({name: name, lastStatus: Date.now()});
         await db.collection('messages').insertOne({
@@ -76,9 +79,13 @@ server.get("/participants", async (req, res) => {
 
 server.post("/messages", async (req, res) => {
 
-    const {to, text, type} = req.body;
+    const {to, text, type} = req.body; 
     const {user} = req.headers;
-    const message = {to, text, type};
+    const message = {
+        to, 
+        text, 
+        type
+    };
 
     const validation = messageSchema.validate(message, {abortEarly: false});
     const participant = await db.collection('participants').findOne({name: user})
@@ -93,9 +100,16 @@ server.post("/messages", async (req, res) => {
     }
 
     try{
+        const sanitizedUser = stripHtml(user).result.trim();
+        const sanitizedTo = stripHtml(to).result.trim();
+        const sanitizedText = stripHtml(text).result.trim();
+        const sanitizedType = stripHtml(type).result.trim();
+
         await db.collection('messages').insertOne({
-            from: user,
-            ...message,
+            from: sanitizedUser,
+            sanitizedTo,
+            sanitizedText,
+            sanitizedType,
             time: dayjs().locale('br').format('HH:mm:ss')
         });
         return res.sendStatus(201);
@@ -156,7 +170,7 @@ setInterval( async () => {
         return participant.lastStatus < Date.now() - 10000;
     });
     inactiveUsers.forEach( async (user, i) => {
-        console.log(user)
+        
         await db.collection('participants').deleteOne({_id: user._id});
         await db.collection('messages').insertOne({
             from: user.name, 
