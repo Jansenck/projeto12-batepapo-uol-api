@@ -1,5 +1,5 @@
 import express, {json} from 'express';
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import dotenv from "dotenv";
 import dayjs from 'dayjs';
 import cors from 'cors';
@@ -58,9 +58,11 @@ server.post("/participants", async (req,res) => {
         console.error(error);
         return res.sendStatus(500);
     }
+
 });
 
 server.get("/participants", async (req, res) => {
+
     
     try{
         const participants = await db.collection('participants').find().toArray();
@@ -146,5 +148,24 @@ server.post("/status", async (req,res) => {
         return res.sendStatus(500);
     }   
 });
+
+setInterval( async () => {
+
+    const participants = await db.collection('participants').find().toArray();
+    const inactiveUsers = participants.filter((participant) => {
+        return participant.lastStatus < Date.now() - 10000;
+    });
+    inactiveUsers.forEach( async (user, i) => {
+        console.log(user)
+        await db.collection('participants').deleteOne({_id: user._id});
+        await db.collection('messages').insertOne({
+            from: user.name, 
+            to: 'Todos', 
+            text: 'sai da sala...', 
+            type: 'status', 
+            time: dayjs().locale('br').format('HH:mm:ss')
+        });
+    });       
+}, 15000);
 
 server.listen(5000);
